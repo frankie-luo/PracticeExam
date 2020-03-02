@@ -1,0 +1,72 @@
+---
+title: "Practice Exam"
+author: "Karl Rohe"
+date: "2/27/2020"
+output: md_document
+---
+
+# Practice Exam
+
+This practice exam asks you to do several code wrangling tasks that we have done in class so far. 
+
+Clone this repo into Rstudio and fill in the necessary code.  Then, commit and push to github.  Finally, turn in a link to canvas. 
+
+
+
+```{r echo = F}
+knitr::opts_chunk$set(warning = FALSE)
+library(tidyverse)
+library(nycflights13)
+# flights
+# weather
+```
+
+
+Make a plot with three facets, one for each airport in the weather data.  The x-axis should be the day of the year (1:365) and the y-axis should be the mean temperature recorded on that day, at that airport.
+```{r}
+library(lubridate)
+df <- weather %>% mutate(day_of_year = yday(time_hour))
+df2 <- df %>% select(origin, day_of_year, temp)
+df3 <- df2 %>% group_by(origin, day_of_year) %>% summarise(mean_temp = mean(temp, na.rm = T))
+df3 %>% ggplot(aes(x = day_of_year, y = mean_temp)) + geom_point() + facet_wrap(~ origin)
+```
+
+
+Make a non-tidy matrix of that data where each row is an airport and each column is a day of the year.  
+
+```{r}
+df4 <- df3 %>% pivot_wider(names_from = day_of_year, values_from = mean_temp)
+df4
+```
+
+
+For each (airport, day) contruct a tidy data set of the airport's "performance" as the proportion of flights that departed less than an hour late. 
+```{r}
+df5 <- flights %>% mutate(day_of_year = yday(time_hour)) %>% select(origin, day_of_year, dep_delay) 
+df6 <- df5 %>% group_by(origin, day_of_year) %>% summarise(performance = sum(dep_delay < 60, na.rm = T)/n())
+df6
+```
+
+Construct a tidy data set to that give weather summaries for each (airport, day).  Use the total precipitation, minimum visibility, maximum wind_gust, and average wind_speed.  
+```{r}
+df7 <- df %>% select(origin, day_of_year, precip, visib, wind_gust, wind_speed)
+df8 <- df7 %>% group_by(origin, day_of_year) %>% summarise(total_precipitation = sum(precip), minimum_visibility = min(visib), maximum_wind_gust = max(wind_gust, na.rm = T), average_wind_speed = mean(wind_speed))
+df8 <- df8[!is.infinite(df8$maximum_wind_gust),]
+df8
+```
+
+Construct a linear model to predict the performance of each (airport,day) using the weather summaries and a "fixed effect" for each airport.  Display the summaries.  
+```{r}
+df9 <- inner_join(df6, df8)
+df9
+lm1 <- lm(data = df9, performance ~ .)
+summary(lm1)
+```
+
+Repeat the above, but only for EWR.  Obviously, exclude the fixed effect for each airport.
+```{r}
+data = df9 %>% filter(origin == 'JFK')
+data$origin = NULL
+lm2 <- lm(data = data, performance ~ .)
+summary(lm2)
+```
